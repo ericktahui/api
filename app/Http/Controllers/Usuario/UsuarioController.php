@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 
 use App\Models\Usuario;
+use Illuminate\Support\Facades\DB;
 
 class UsuarioController extends Controller
 {
@@ -35,6 +36,7 @@ class UsuarioController extends Controller
         echo $users;
     }
 
+
     public function registerUsuario(Request $data){
         $id=0;
 
@@ -58,6 +60,76 @@ class UsuarioController extends Controller
         return response()->json(['usuario'=>$user->usrSistema,'email'=>$user->correo]);
         
     }
+
+
+    
+    public function login(Request $data){
+     
+        $count = Usuario::where('usrSistema',$data->input('usrSistema'))
+                    ->where('passwSistema',$data->input('passwSistema'))
+                    ->count();
+        
+            
+          if($count<=0){
+            return response()->json(['error'=>'Usuario y/o Password incorrectos','exito'=>false]);
+          }
+        else{
+            $user = Usuario::where('usrSistema',$data->input('usrSistema'))
+            ->where('passwSistema',$data->input('passwSistema'))
+            ->firstOrFail();
+    
+             return response()->json(['exito'=>true,'error'=>'','usrSistema'=>$user->usrSistema,'email'=>$user->correo,'idUsuario'=>$user->idUsuario]);
+        
+        }
+      
+        
+    }
+
+
+
+    public function loginsp(Request $data){
+     
+        $count = Usuario::where('usrSistema',$data->input('usrSistema'))
+                    ->where('passwSistema',$data->input('passwSistema'))
+                    ->count();
+        
+            
+          if($count<=0){
+            return response()->json(['error'=>'Usuario y/o Password incorrectos','exito'=>false]);
+          }
+        else{
+
+            $user =  DB::statement('call pcLogin(?,?)',[$data->input('usrSistema'),$data->input('passwSistema')]);
+
+                //pendiente
+           //return $user.tostr;
+           
+          // return Usuario::hydrate($user);
+           
+            // return response()->json(['exito'=>true,'error'=>'','usrSistema'=>$user->usrSistema,'email'=>$user->correo,'idUsuario'=>$user->idUsuario]);
+        
+
+           // $users = DB::select('select * from users where active = ?', [1]);
+           // return view('user.index', ['users' => $users]);
+
+
+            //o asi
+            /*
+            $p0 = Carbon::now();
+            $p1 = Carbon::now()->addDays(7);
+            $p2 = 100;
+            $p3 = 2;
+            DB::select(DB::raw("CALL rentalsAvailables_get($p0, $p1, $p2, $p3)"));
+                        
+            */
+
+
+
+        }
+      
+        
+    }
+
 
 
 
