@@ -23,7 +23,7 @@ use Illuminate\Http\Request;
 Route::post('loginsp','Usuario\UsuarioController@loginsp');
 Route::post('login','Usuario\UsuarioController@login');
 Route::post('registerusuario','Usuario\UsuarioController@registerUsuario');
-Route::get('usuariosxnombre/{nombre}','Usuario\UsuarioController@getUsuariosLikeNombre');
+Route::post('usuarioslikenombre','Usuario\UsuarioController@getUsuariosLikeNombre');
 Route::get('usuarioxid/{id}','Usuario\UsuarioController@getUsuarioXId');
 Route::get('usuarioxcorreo/{email}','Usuario\UsuarioController@getUsuarioXCorreo');
 Route::get('popular/{id}','Usuario\UsuarioController@getUsuarioPopular');

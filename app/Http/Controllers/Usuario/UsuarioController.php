@@ -6,6 +6,9 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 
 use App\Models\Usuario;
+use App\Models\Socio;
+use App\Models\UsuarioRelSocio;
+use App\Models\UsuarioRelEntidad;
 use Illuminate\Support\Facades\DB;
 
 class UsuarioController extends Controller
@@ -16,7 +19,6 @@ class UsuarioController extends Controller
        
         $user = Usuario::where('idUsuario',$id)->firstOrFail();
         
-        //echo $user->usrSistema;
         return response()->json(['usuario'=>$user->usrSistema,'email'=>$user->correo]);
     }
 
@@ -29,36 +31,153 @@ class UsuarioController extends Controller
     }
 
 
-    public function getUsuariosLikeNombre($nombre){
+    public function getUsuariosLikeNombre(Request $data){
        
-        $users = Usuario::where('usrSistema','like','%'+$nombre+'%')->firstOrFail();
+        // $users = Usuario::where('usrSistema','like','%'.$nombre.'%')->firstOrFail();
+        // echo $users;
+        $arrayUsrs=[];
+        $nombre= $data->input('nombre');
+        $users =Usuario::where('usrSistema','like','%'.$nombre.'%')->get();
         
-        echo $users;
+
+        foreach($users as $usr)
+        {  
+            //printf( $usr->usrSistema);
+            $arrayUsrs[]=[
+                'usuario'=>$usr->usrSistema
+            ];
+        }
+        
+        return response()->json($arrayUsrs);
+
     }
 
 
+    public function deteleUsuario(Request $data){
+         $idUsuario=0;
+         $count=0;
+
+         $count = Usuario::where('idUsuario',$idUsuario)->count();
+        
+         if($count<=0){
+             return response()->json(['error'=>'El Usuario No Existe','exito'=>false]);
+           }
+         else{
+             $user = Usuario::where('idUsuario',$idUsuario)->firstOrFail();
+             return response()->json(['error'=>'','exito'=>true,
+                                      'usuario'=>$user->usrSistema,
+                                      'email'=>$user->correo]);
+         }
+        
+ 
+
+    }
+
+
+
     public function registerUsuario(Request $data){
-        $id=0;
+        $idUsuario=0;
+        $idSocio=0;
+        $idUsrRelSocio=0;
+        $count=0;
+        $existeCorreo=0;
+        $idClubFrecuentaMas=0;
 
-        //return $data->input('usrSistema');
-        
-        
-       // DB::transaction(function(){
+        $idClubFrecuentaMas = $data->input('idClubFrecuentaMas');
 
-            $id= Usuario::insertGetId([
+        //Verificamos si envió el campo correo 
+        if($data->input('correo')==''){
+            return response()->json(['error'=>'El campo correo no puede estar vacío','exito'=>false]);
+        }
+
+        //Verificamos si se selecciono el club por default 
+        if($idClubFrecuentaMas<=0){
+            return response()->json(['error'=>'No se seleccionó el Club','exito'=>false]);
+        }
+
+        //Verificamos si el correo ya existe
+        $existeCorreo = Usuario::where('correo',$data->input('correo'))->count();
+        if($existeCorreo>0){
+            return response()->json(['error'=>'Este correo ya ha sido registrado','exito'=>false]);
+        }
+
+        
+
+        DB::beginTransaction();
+        try
+        {
+
+            $idUsuario= Usuario::insertGetId([
                 'usrSistema' => $data->input('usrSistema'),
                 'correo' => $data->input('correo'),
                 'passwSistema' => $data->input('passwSistema'),
             ]);
 
-       // });
 
-       // 'passwSistema' => Hash::make($data->input('passwSistema') ),
+           
+            if($idUsuario>0){
 
-        $user = Usuario::where('idUsuario',$id)->firstOrFail();
+                $idSocio=Socio::insertGetId([
+                    'nombre' => $data->input('nombre'),
+                    'apPaterno' => $data->input('apPaterno'),
+                    'apMaterno' => $data->input('apMaterno'),
+                    'correo' => $data->input('correo'),
+                    'capoNombre' => $data->input('capoNombre'),
+                    'fechaNacimiento' => $data->input('fechaNacimiento'),
+                    'sexo' => $data->input('sexo'),
+                    'idClubFrecuentaMas' => $data->input('idClubFrecuentaMas'),
+                ]);
+
+                
+                //Insertamos la relacion del usuario con su entidad elegida
+                if( $idClubFrecuentaMas >0){
+                    UsuarioRelEntidad::insertGetId([
+                        'Usuario_idUsuario' => $idUsuario,
+                        'Entidad_idEntidad' => $idClubFrecuentaMas
+                    ]);
+                }else{ 
+                    throw new \Exception("No fué posible registrar relacion usr-club");
+                }
+                
+
+                //Insertamos la relacion Usuario <-> Socio
+                if($idSocio>0){
+                    UsuarioRelSocio::insertGetId([
+                        'Usuario_idUsuario' => $idUsuario,
+                        'Socio_idSocio' => $idSocio
+                    ]);
+                }else{ 
+                    throw new \Exception("No fué posible registrar socio");
+                }
+
+            }
+            else{
+                throw new \Exception("No fué posible registrar el usuario");
+            }
+           
+
+         DB::commit();
+        } 
+        catch(\Exception $e){
+            DB::rollBack();
+            return response()->json(['error'=>$e->getMessage(),'exito'=>false]);
+        }
         
-        return response()->json(['usuario'=>$user->usrSistema,'email'=>$user->correo]);
+
+
+        $count = Usuario::where('idUsuario',$idUsuario)->count();
         
+        if($count<=0){
+            return response()->json(['error'=>'Error al registrar el usuario','exito'=>false]);
+          }
+        else{
+            $user = Usuario::where('idUsuario',$idUsuario)->firstOrFail();
+            return response()->json(['error'=>'','exito'=>true,
+                                     'usuario'=>$user->usrSistema,'email'=>$user->correo]);
+        }
+       
+
+
     }
 
 
@@ -78,7 +197,9 @@ class UsuarioController extends Controller
             ->where('passwSistema',$data->input('passwSistema'))
             ->firstOrFail();
     
-             return response()->json(['exito'=>true,'error'=>'','usrSistema'=>$user->usrSistema,'email'=>$user->correo,'idUsuario'=>$user->idUsuario]);
+             return response()->json(['exito'=>true,'error'=>'','usrSistema'=>$user->usrSistema,
+                                                                'email'=>$user->correo,
+                                                                'idUsuario'=>$user->idUsuario]);
         
         }
       
@@ -90,8 +211,8 @@ class UsuarioController extends Controller
     public function loginsp(Request $data){
      
         $count = Usuario::where('usrSistema',$data->input('usrSistema'))
-                    ->where('passwSistema',$data->input('passwSistema'))
-                    ->count();
+                        ->where('passwSistema',$data->input('passwSistema'))
+                        ->count();
         
             
           if($count<=0){
@@ -99,32 +220,17 @@ class UsuarioController extends Controller
           }
         else{
 
-            $user =  DB::statement('call pcLogin(?,?)',[$data->input('usrSistema'),$data->input('passwSistema')]);
+            //Funciona OK
+            //$user =  DB::statement('call pcLogin(?,?)',[$data->input('usrSistema'),$data->input('passwSistema')]);
 
-                //pendiente
-           //return $user.tostr;
+           $model= new Usuario();
+                      
+           $users = $model ->hydrate(
+                DB::select('call pcLogin(?,?)',[$data->input('usrSistema'),$data->input('passwSistema')])
+           );
+
+           return $users;
            
-          // return Usuario::hydrate($user);
-           
-            // return response()->json(['exito'=>true,'error'=>'','usrSistema'=>$user->usrSistema,'email'=>$user->correo,'idUsuario'=>$user->idUsuario]);
-        
-
-           // $users = DB::select('select * from users where active = ?', [1]);
-           // return view('user.index', ['users' => $users]);
-
-
-            //o asi
-            /*
-            $p0 = Carbon::now();
-            $p1 = Carbon::now()->addDays(7);
-            $p2 = 100;
-            $p3 = 2;
-            DB::select(DB::raw("CALL rentalsAvailables_get($p0, $p1, $p2, $p3)"));
-                        
-            */
-
-
-
         }
       
         
