@@ -20,12 +20,17 @@ use Illuminate\Http\Request;
 
 /* Para añadir Rutas adicionales a un recurso RESTful debemos agregarlas "ANTES"  de las rutas del propio recurso */
 
+
+
+Route::post('deleteusuario','Usuario\UsuarioController@deleteusuario');
 Route::post('loginsp','Usuario\UsuarioController@loginsp');
 Route::post('login','Usuario\UsuarioController@login');
 Route::post('registerusuario','Usuario\UsuarioController@registerUsuario');
+
 Route::post('usuarioslikenombre','Usuario\UsuarioController@getUsuariosLikeNombre');
-Route::get('usuarioxid/{id}','Usuario\UsuarioController@getUsuarioXId');
-Route::get('usuarioxcorreo/{email}','Usuario\UsuarioController@getUsuarioXCorreo');
+
+Route::get('usuarioxid/{id}/{token}','Usuario\UsuarioController@getUsuarioXId');
+Route::get('usuarioxcorreo/{email}/{token}','Usuario\UsuarioController@getUsuarioXCorreo');
 Route::get('popular/{id}','Usuario\UsuarioController@getUsuarioPopular');
 Route::resource('usuario','Usuario\UsuarioController');
 

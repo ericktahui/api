@@ -15,7 +15,7 @@ class UsuarioController extends Controller
 {
 
   
-    public function getUsuarioXId($id){
+    public function getUsuarioXId($id,$token){
        
         $user = Usuario::where('idUsuario',$id)->firstOrFail();
         
@@ -33,8 +33,6 @@ class UsuarioController extends Controller
 
     public function getUsuariosLikeNombre(Request $data){
        
-        // $users = Usuario::where('usrSistema','like','%'.$nombre.'%')->firstOrFail();
-        // echo $users;
         $arrayUsrs=[];
         $nombre= $data->input('nombre');
         $users =Usuario::where('usrSistema','like','%'.$nombre.'%')->get();
@@ -42,7 +40,6 @@ class UsuarioController extends Controller
 
         foreach($users as $usr)
         {  
-            //printf( $usr->usrSistema);
             $arrayUsrs[]=[
                 'usuario'=>$usr->usrSistema
             ];
@@ -53,24 +50,62 @@ class UsuarioController extends Controller
     }
 
 
-    public function deteleUsuario(Request $data){
-         $idUsuario=0;
-         $count=0;
+    public function deleteusuario(Request $data){
+        $idUsuario=0;
+        $idSocio=0;
+        $count=0;
 
-         $count = Usuario::where('idUsuario',$idUsuario)->count();
+        $idUsuario = $data->input('idUsuario');
+        $idSocio= $data->input('idSocio');
+
+        $count = Usuario::where('idUsuario',$idUsuario)->count();
         
+        //Investigar la forma de tener un token por cookie
+         if($data->token!='QWERTY'){
+            return response()->json(['error'=>'No autorizado','exito'=>false]);
+         }
+
+
          if($count<=0){
              return response()->json(['error'=>'El Usuario No Existe','exito'=>false]);
-           }
-         else{
-             $user = Usuario::where('idUsuario',$idUsuario)->firstOrFail();
-             return response()->json(['error'=>'','exito'=>true,
-                                      'usuario'=>$user->usrSistema,
-                                      'email'=>$user->correo]);
          }
-        
- 
 
+         $Socio= UsuarioRelSocio::select('Socio_idSocio')->where('Usuario_idUsuario', $idUsuario)->get();
+
+         foreach($Socio as $idS)
+         {
+            $idSocio =$idS->Socio_idSocio;
+         }
+
+         if($idSocio<=0)
+         { 
+             return response()->json(['error'=>'Usuario no ligado a socio existente ','exito'=>false]);
+         }
+
+
+        DB::beginTransaction();
+        try
+        {
+            //Elimiar TODAS las relaciones de entidades para esete usuario
+            UsuarioRelEntidad::where('Usuario_idUsuario',$idUsuario)->delete();
+
+            UsuarioRelSocio::where('Usuario_idUsuario',$idUsuario)
+                           ->where('Socio_idSocio',$idSocio)->delete();
+
+            Usuario::where('idUsuario',$idUsuario)->delete();
+        
+            Socio::where('idSocio',$idSocio)
+                 ->where('idSocio','>',0)->delete();
+        
+
+            DB::commit();
+        }
+        catch(\Exception $e){
+            DB::rollBack();
+            return response()->json(['error'=>$e->getMessage(),'exito'=>false]);
+        }
+         
+        return response()->json(['error'=>'','exito'=>true]);
     }
 
 
@@ -149,6 +184,9 @@ class UsuarioController extends Controller
                 }else{ 
                     throw new \Exception("No fué posible registrar socio");
                 }
+
+                //Actualizamos el socio ligado al usuario
+               // Usuario::where('idUsuario', $idUsuario)->update(array('esSocio_idSocio' => $idSocio));
 
             }
             else{
