@@ -15,15 +15,55 @@ class UsuarioController extends Controller
 {
 
   
-    public function getUsuarioXId($id,$token){
+    public function userxid($id,$token){
        
-        $user = Usuario::where('idUsuario',$id)->firstOrFail();
+        /*
+        //usando un sp
+        $model= new Usuario();
+                      
+           $users = $model ->hydrate(
+                DB::select('call pcLogin(?,?)',[$data->input('usrSistema'),$data->input('passwSistema')])
+           );
+
+           return $users;
+        */
+
+
+
+        /*
+         // Pendiente de ver si creo un sp
+
+        $user = Usuario::where('idUsuario',$id)->get();
         
+        foreach($user as $usr)
+        {  
+            $arrayUsrs[]=[
+                'idusuario'=>$usr->idUsuario,
+                'usuario'=>$usr->usrSistema,
+                'nombre' => $usr->nombre,
+                'apPaterno' => $usr->apPaterno,
+                'apMaterno' => $usr->apMaterno,
+                'correo' => $usr->correo,
+                'capoNombre' => $usr->capoNombre,
+                'fechaNacimiento' => $usr->fechaNacimiento,
+                'sexo' => $usr->sexo,
+                'idClubFrecuentaMas' => $usr->idClubFrecuentaMas,
+                //foto
+            ];
+        }
+        
+        return response()->json($arrayUsrs);
+
+        */
+
+
+
+
         return response()->json(['usuario'=>$user->usrSistema,'email'=>$user->correo]);
     }
 
 
-    public function getUsuarioXCorreo($email){
+    public function userxemail($email){
        
         $user = Usuario::where('correo',$email)->firstOrFail();
         
@@ -31,7 +71,7 @@ class UsuarioController extends Controller
     }
 
 
-    public function getUsuariosLikeNombre(Request $data){
+    public function userslikename(Request $data){
        
         $arrayUsrs=[];
         $nombre= $data->input('nombre');
@@ -49,8 +89,8 @@ class UsuarioController extends Controller
 
     }
 
-
-    public function deleteusuario(Request $data){
+    
+    public function deleteuser(Request $data){
         $idUsuario=0;
         $idSocio=0;
         $count=0;
@@ -76,12 +116,7 @@ class UsuarioController extends Controller
          {
             $idSocio =$idS->Socio_idSocio;
          }
-
-         if($idSocio<=0)
-         { 
-             return response()->json(['error'=>'Usuario no ligado a socio existente ','exito'=>false]);
-         }
-
+        
 
         DB::beginTransaction();
         try
@@ -89,14 +124,20 @@ class UsuarioController extends Controller
             //Elimiar TODAS las relaciones de entidades para esete usuario
             UsuarioRelEntidad::where('Usuario_idUsuario',$idUsuario)->delete();
 
-            UsuarioRelSocio::where('Usuario_idUsuario',$idUsuario)
-                           ->where('Socio_idSocio',$idSocio)->delete();
+            if($idSocio>0)
+            { 
+                UsuarioRelSocio::where('Usuario_idUsuario',$idUsuario)
+                               ->where('Socio_idSocio',$idSocio)->delete();
+            }
 
             Usuario::where('idUsuario',$idUsuario)->delete();
         
+            if($idSocio>0)
+            { 
             Socio::where('idSocio',$idSocio)
                  ->where('idSocio','>',0)->delete();
-        
+            }
+
 
             DB::commit();
         }
@@ -110,7 +151,93 @@ class UsuarioController extends Controller
 
 
 
-    public function registerUsuario(Request $data){
+    public function downuser(Request $data){
+        $idUsuario=0;
+        $idSocio=0;
+        $idUsuario = $data->input('idUsuario');
+       
+        $count = Usuario::where('idUsuario',$idUsuario)->count();
+        
+        //Investigar la forma de tener un token por cookie
+         if($data->token!='QWERTY'){
+            return response()->json(['error'=>'No autorizado','exito'=>false]);
+         }
+
+
+         if($count<=0){
+             return response()->json(['error'=>'El Usuario No Existe','exito'=>false]);
+         }
+
+         $Socio= UsuarioRelSocio::select('Socio_idSocio')->where('Usuario_idUsuario', $idUsuario)->get();
+
+         foreach($Socio as $idS)
+         {
+            $idSocio =$idS->Socio_idSocio;
+         }
+
+         
+        DB::beginTransaction();
+        try
+        {
+           
+            //Actualizamos el estaus del usuario a inactivo 
+           Usuario::where('correo', $correo)
+           ->where('passwSistema',$oldPassw)->update(array('iEstatusReg' => 0));
+
+           if($idSocio>0)
+           { 
+                //Actualizamos el estaus del socio a inactivo 
+                Socio::where('idSocio', $idSocio)
+                     ->where('correo',$correo)->update(array('statusReg' => 0));
+           }
+
+            DB::commit();
+        }
+        catch(\Exception $e){
+            DB::rollBack();
+            return response()->json(['error'=>$e->getMessage(),'exito'=>false]);
+        }
+         
+        return response()->json(['error'=>'','exito'=>true]);
+    }
+
+
+
+
+
+    public function updatepassword(Request $data){
+       
+        $oldPassw = $data->input('oldPassw');
+        $newPassw = $data->input('newPassw');
+        $correo = $data->input('correo');
+       
+        $count = Usuario::where('correo',$correo)
+                        ->where('passwSistema',$oldPassw)->count();
+        
+        if($count<=0){
+            return response()->json(['error'=>'El usuario no existe o el password es incorrecto ','exito'=>false]);
+        }
+        
+        DB::beginTransaction();
+        try
+        {
+           //Actualizamos el password del  usuario
+           Usuario::where('correo', $correo)
+                  ->where('passwSistema',$oldPassw)->update(array('passwSistema' => $newPassw));
+
+         DB::commit();
+        } 
+        catch(\Exception $e){
+            DB::rollBack();
+            return response()->json(['error'=>$e->getMessage(),'exito'=>false]);
+        }
+        
+        return response()->json(['error'=>'','exito'=>true]);
+    }
+
+
+
+    public function registeruser(Request $data){
         $idUsuario=0;
         $idSocio=0;
         $idUsrRelSocio=0;
@@ -285,11 +412,7 @@ class UsuarioController extends Controller
     }
 
 
-    /**
-     * Display a listing of the resource.
-     *
-     * @return \Illuminate\Http\Response
-     */
+    
     public function index()
     {
         $age =32;
@@ -297,72 +420,51 @@ class UsuarioController extends Controller
        return response()->json( ['nombre'=>'erick','id'=>$id2,'edad'=>$age] );
     }
 
-    /**
-     * Show the form for creating a new resource.
-     *
-     * @return \Illuminate\Http\Response
-     */
+    
+
+
+/*
+
     public function create()
     {
         //
     }
 
-    /**
-     * Store a newly created resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\Response
-     */
     public function store(Request $request)
     {
         //
     }
 
-    /**
-     * Display the specified resource.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
     public function show($id)
     {
        return response()->json( ['nombre'=>'erick_2','id'=>$id] );
     }
 
-
-   
-
-    /**
-     * Show the form for editing the specified resource.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
     public function edit($id)
     {
         //
     }
 
-    /**
-     * Update the specified resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
+    
+    //Update the specified resource in storage.
+    // @param  \Illuminate\Http\Request  $request
+    // @param  int  $id
+    // @return \Illuminate\Http\Response
+     
     public function update(Request $request, $id)
     {
         //
     }
 
-    /**
-     * Remove the specified resource from storage.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
+   
     public function destroy($id)
     {
         //
     }
+
+*/
+
+
+
+
 }

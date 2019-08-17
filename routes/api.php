@@ -22,15 +22,21 @@ use Illuminate\Http\Request;
 
 
 
-Route::post('deleteusuario','Usuario\UsuarioController@deleteusuario');
+Route::post('downuser','Usuario\UsuarioController@downuser');
+Route::post('updatepassword','Usuario\UsuarioController@updatepassword');
+Route::post('deleteuser','Usuario\UsuarioController@deleteuser');
+Route::post('registeruser','Usuario\UsuarioController@registeruser');
+
+
 Route::post('loginsp','Usuario\UsuarioController@loginsp');
 Route::post('login','Usuario\UsuarioController@login');
-Route::post('registerusuario','Usuario\UsuarioController@registerUsuario');
 
-Route::post('usuarioslikenombre','Usuario\UsuarioController@getUsuariosLikeNombre');
+Route::post('userslikename','Usuario\UsuarioController@userslikename');
 
-Route::get('usuarioxid/{id}/{token}','Usuario\UsuarioController@getUsuarioXId');
-Route::get('usuarioxcorreo/{email}/{token}','Usuario\UsuarioController@getUsuarioXCorreo');
+Route::get('userxid/{id}/{token}','Usuario\UsuarioController@userxid');
+Route::get('userxemail/{email}/{token}','Usuario\UsuarioController@userxemail');
+
+//Pruebas iniciales laravel
 Route::get('popular/{id}','Usuario\UsuarioController@getUsuarioPopular');
 Route::resource('usuario','Usuario\UsuarioController');
 
